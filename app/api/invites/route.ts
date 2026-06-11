@@ -53,6 +53,7 @@ export async function POST() {
   expiresAt.setDate(expiresAt.getDate() + 7)
 
   let code = generateCode()
+  let lastError = null
   // 极小概率碰撞重试
   for (let i = 0; i < 3; i++) {
     const { error } = await admin.from('restaurant_invites').insert({
@@ -60,9 +61,11 @@ export async function POST() {
       code,
       expires_at: expiresAt.toISOString(),
     })
-    if (!error) break
+    if (!error) { lastError = null; break }
+    lastError = error
     code = generateCode()
   }
 
+  if (lastError) return NextResponse.json({ error: '生成邀请码失败，请重试' }, { status: 500 })
   return NextResponse.json({ code, expires_at: expiresAt.toISOString() })
 }

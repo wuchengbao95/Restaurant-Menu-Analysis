@@ -37,6 +37,7 @@ create table leftover_records (
   leftover_ratio text not null check (leftover_ratio in ('none', 'little', 'half', 'most', 'all')),
   reason_tags text[] default '{}',
   notes text default '',
+  image_url text default null,
   recorded_by uuid references auth.users,
   created_at timestamptz default now()
 );

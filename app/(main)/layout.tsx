@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NavBar from '@/components/NavBar'
+import { ToastProvider } from '@/components/ui/Toast'
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -17,9 +18,20 @@ export default async function MainLayout({ children }: { children: React.ReactNo
     .single()
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <NavBar restaurantName={(profile?.restaurant as { name: string } | null)?.name ?? ''} userRole={profile?.role ?? 'staff'} />
-      <main className="max-w-5xl mx-auto px-4 py-6">{children}</main>
-    </div>
+    <ToastProvider>
+      <div className="flex flex-col h-[100dvh] bg-gray-50 overflow-hidden">
+        <NavBar
+          restaurantName={(profile?.restaurant as { name: string } | null)?.name ?? ''}
+          userRole={profile?.role ?? 'staff'}
+        />
+        {/* 桌面端：侧边栏占位 */}
+        <div className="flex flex-1 overflow-hidden">
+          <div className="hidden sm:block w-48 shrink-0" />
+          <main className="flex-1 overflow-y-auto px-4 pt-5 pb-tab sm:pb-5">
+            {children}
+          </main>
+        </div>
+      </div>
+    </ToastProvider>
   )
 }

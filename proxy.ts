@@ -43,5 +43,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/auth).*)'],
+  // 排除所有 /api/ 路由（由各 API 路由自行处理鉴权）以及静态资源
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
 }

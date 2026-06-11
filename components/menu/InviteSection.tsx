@@ -17,7 +17,7 @@ export default function InviteSection() {
     setLoading(true)
     const res = await fetch('/api/invites')
     const data = await res.json()
-    setInvite(data)
+    setInvite(res.ok ? data : null)
     setLoading(false)
   }
 

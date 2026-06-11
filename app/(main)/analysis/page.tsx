@@ -23,11 +23,8 @@ export default async function AnalysisPage() {
     .limit(10)
 
   return (
-    <div className="sm:ml-48 pb-20 sm:pb-0">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">AI 分析</h1>
-        <p className="text-sm text-gray-500 mt-1">基于剩菜数据，生成优化建议</p>
-      </div>
+    <div>
+      <p className="text-xs text-gray-400 mb-4">基于剩菜数据，生成优化建议</p>
       <AnalysisPanel reports={reports ?? []} />
     </div>
   )

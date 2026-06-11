@@ -32,11 +32,7 @@ export default async function DashboardPage() {
 
   if (!records || records.length === 0) {
     return (
-      <div className="sm:ml-48">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-900">运营看板</h1>
-          <p className="text-sm text-gray-500 mt-1">最近30天数据概览</p>
-        </div>
+      <div>
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
           <p className="text-gray-400 text-sm mb-4">还没有剩菜记录</p>
           <Link
@@ -95,17 +91,14 @@ export default async function DashboardPage() {
   }))
 
   return (
-    <div className="sm:ml-48 pb-20 sm:pb-0">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">运营看板</h1>
-          <p className="text-sm text-gray-500 mt-1">最近30天数据概览</p>
-        </div>
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-gray-400">最近30天数据概览</p>
         <Link
           href="/records/new"
-          className="flex items-center gap-1.5 px-3 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 active:scale-95 transition-transform"
         >
-          <Plus size={16} />
+          <Plus size={15} />
           记录剩菜
         </Link>
       </div>

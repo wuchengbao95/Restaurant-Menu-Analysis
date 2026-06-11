@@ -26,20 +26,8 @@ export default async function NewRecordPage() {
     .order('name')
 
   return (
-    <div className="sm:ml-48 pb-24 sm:pb-0">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">记录剩菜</h1>
-          <p className="text-sm text-gray-500 mt-1">收台时填写，30秒完成</p>
-        </div>
-        <Link
-          href="/records"
-          className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-        >
-          <History size={15} />
-          历史记录
-        </Link>
-      </div>
+    <div>
+      <p className="text-xs text-gray-400 mb-4">收台时填写，30秒完成</p>
       <NewRecordForm menuItems={menuItems ?? []} />
     </div>
   )

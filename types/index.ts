@@ -36,6 +36,7 @@ export interface LeftoverRecord {
   leftover_ratio: LeftoverRatio
   reason_tags: string[]
   notes: string
+  image_url?: string | null
   created_at: string
 }
 

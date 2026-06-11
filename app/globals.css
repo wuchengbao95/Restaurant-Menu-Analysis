@@ -13,15 +13,62 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* iOS safe area */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 底部 Tab 区域底部留白（导航栏高 3.5rem + 1.5rem 呼吸空间 + 安全区） */
+.pb-tab {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+
+/* 隐藏滚动条但保留功能 */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 页面切换动画 */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 0.18s ease-out both;
+}
+
+/* 底部抽屉滑入动画 */
+@keyframes drawerSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.drawer-slide-up {
+  animation: drawerSlideUp 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
