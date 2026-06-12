@@ -64,14 +64,15 @@ export async function POST(request: Request) {
       .from('user_profiles').select('id').eq('id', user.id).single()
     if (existing) return NextResponse.json({ ok: true })
 
-    const { data: restaurant, error: rErr } = await supabase
+    const adminForOtp = createAdminClient()
+    const { data: restaurant, error: rErr } = await adminForOtp
       .from('restaurants')
       .insert({ name: restaurantName, contact_name: contactName, contact_phone: '' })
       .select().single()
 
     if (rErr || !restaurant) return NextResponse.json({ error: rErr?.message }, { status: 500 })
 
-    const { error: pErr } = await supabase.from('user_profiles').insert({
+    const { error: pErr } = await adminForOtp.from('user_profiles').insert({
       id: user.id, restaurant_id: restaurant.id, role: 'owner', name: contactName,
     })
     if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 })
