@@ -43,23 +43,38 @@ export async function POST(request: Request) {
   })
 
   if (!createError) {
+    // 新用户
     userId = newUser.user!.id
     isNewUser = true
   } else {
-    // 用户已存在（或其他错误），用稳定密码直接登录取得 userId
+    // 用户已存在，先尝试用稳定密码直接登录
     const anonClient = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { auth: { persistSession: false } }
     )
-    const { data: signInData, error: signInError } = await anonClient.auth.signInWithPassword({ email, password })
 
-    if (signInError || !signInData.user) {
-      console.error('createUser error:', createError, 'signIn error:', signInError)
-      return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 })
+    const { data: signInData } = await anonClient.auth.signInWithPassword({ email, password })
+
+    if (signInData?.user) {
+      // 稳定密码匹配，直接登录成功
+      userId = signInData.user.id
+    } else {
+      // 旧密码，用 generateLink 找到 userId 后更新为稳定密码
+      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+      })
+
+      if (linkError || !linkData?.user?.id) {
+        console.error('generateLink error:', linkError, 'createUser error:', createError)
+        return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 })
+      }
+
+      userId = linkData.user.id
+      await admin.auth.admin.updateUserById(userId, { password })
     }
 
-    userId = signInData.user.id
     const { data: profile } = await admin.from('user_profiles').select('id').eq('id', userId).single()
     isNewUser = !profile
   }
