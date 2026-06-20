@@ -32,6 +32,11 @@ export async function POST(request: Request) {
   const email = openidToEmail(openid)
   const password = openidToPassword(openid)
   const admin = createAdminClient()
+  const anonClient = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } }
+  )
 
   let userId: string
   let isNewUser: boolean
@@ -43,41 +48,53 @@ export async function POST(request: Request) {
   })
 
   if (!createError) {
-    // 新用户
     userId = newUser.user!.id
     isNewUser = true
   } else {
-    // 用户已存在，先尝试用稳定密码直接登录
-    const anonClient = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { persistSession: false } }
-    )
-
     const { data: signInData } = await anonClient.auth.signInWithPassword({ email, password })
 
     if (signInData?.user) {
-      // 稳定密码匹配，直接登录成功
       userId = signInData.user.id
-    } else {
-      // 旧密码，用 generateLink 找到 userId 后更新为稳定密码
-      const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-        type: 'recovery',
-        email,
+      // 已有 session，直接返回 token
+      const { data: profile } = await admin.from('user_profiles').select('id').eq('id', userId).single()
+      return NextResponse.json({
+        ok: true,
+        userId,
+        isNewUser: !profile,
+        access_token: signInData.session!.access_token,
+        refresh_token: signInData.session!.refresh_token,
       })
-
-      if (linkError || !linkData?.user?.id) {
-        console.error('generateLink error:', linkError, 'createUser error:', createError)
-        return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 })
-      }
-
-      userId = linkData.user.id
-      await admin.auth.admin.updateUserById(userId, { password })
     }
+
+    // 旧密码，更新后重新登录
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: 'recovery',
+      email,
+    })
+
+    if (linkError || !linkData?.user?.id) {
+      console.error('generateLink error:', linkError, 'createUser error:', createError)
+      return NextResponse.json({ error: '登录失败，请重试' }, { status: 500 })
+    }
+
+    userId = linkData.user.id
+    await admin.auth.admin.updateUserById(userId, { password })
 
     const { data: profile } = await admin.from('user_profiles').select('id').eq('id', userId).single()
     isNewUser = !profile
   }
 
-  return NextResponse.json({ ok: true, email, password, userId, isNewUser })
+  // 新用户或密码刚更新，做一次登录拿 token
+  const { data: session, error: sessionError } = await anonClient.auth.signInWithPassword({ email, password })
+  if (sessionError || !session?.session) {
+    return NextResponse.json({ error: '获取登录凭证失败，请重试' }, { status: 500 })
+  }
+
+  return NextResponse.json({
+    ok: true,
+    userId,
+    isNewUser,
+    access_token: session.session.access_token,
+    refresh_token: session.session.refresh_token,
+  })
 }

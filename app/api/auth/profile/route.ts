@@ -8,10 +8,12 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('id, name, role, restaurant_id')
+    .select('id, name, role, restaurant_id, restaurants(name)')
     .eq('id', user.id)
     .single()
 
   if (!profile) return NextResponse.json({ error: 'No profile' }, { status: 404 })
-  return NextResponse.json(profile)
+
+  const { restaurants, ...rest } = profile as any
+  return NextResponse.json({ ...rest, restaurant_name: restaurants?.name ?? '' })
 }
