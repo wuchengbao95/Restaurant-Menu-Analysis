@@ -7,6 +7,53 @@ function getClient() {
   })
 }
 
+export interface MenuItemExtracted {
+  name: string
+  category: string
+}
+
+export async function extractMenuItems(imageUrl: string): Promise<MenuItemExtracted[]> {
+  const client = getClient()
+
+  const response = await client.chat.completions.create({
+    model: 'deepseek-vl2',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: imageUrl } },
+          {
+            type: 'text',
+            text: `这是一张餐厅菜单照片（纸质菜单、菜单展示牌等）。
+
+请提取照片中所有菜品名称，并为每道菜分配合适的分类。
+
+分类只能从以下选择：凉菜、热菜、汤类、主食、海鲜、烧烤、饮品、甜品、其他
+
+要求：
+- 只提取菜品名称，不要包含价格、克重、备注等信息
+- 名称保持原始写法，不要翻译或修改
+- 如果无法判断分类，归入"其他"
+- 最多返回100个菜品
+
+以JSON数组格式返回，不要任何其他文字：
+[{"name":"菜品名","category":"分类"},...]`,
+          },
+        ] as never,
+      },
+    ],
+    max_tokens: 2000,
+    temperature: 0.1,
+  })
+
+  const text = response.choices[0].message.content ?? ''
+  const match = text.match(/\[[\s\S]*\]/)
+  if (!match) throw new Error('AI返回格式异常')
+
+  const items: MenuItemExtracted[] = JSON.parse(match[0])
+  return items.filter((item) => item.name && item.category)
+}
+
 export interface IdentifyResult {
   dish_name: string
   leftover_ratio: 'none' | 'little' | 'half' | 'most' | 'all'

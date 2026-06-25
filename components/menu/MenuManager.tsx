@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { MenuItem } from '@/types'
-import { Plus, Pencil, X, EyeOff, Eye } from 'lucide-react'
+import { Plus, Pencil, X, EyeOff, Eye, Camera, Check, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 
 const CATEGORIES = ['凉菜', '热菜', '汤类', '主食', '海鲜', '烧烤', '饮品', '甜品', '其他']
@@ -82,6 +82,12 @@ function MenuItemRow({
   )
 }
 
+interface ImportCandidate {
+  name: string
+  category: string
+  selected: boolean
+}
+
 export default function MenuManager({ menuItems }: { menuItems: MenuItem[] }) {
   const { show: showToast } = useToast()
   const [items, setItems] = useState(menuItems)
@@ -89,6 +95,68 @@ export default function MenuManager({ menuItems }: { menuItems: MenuItem[] }) {
   const [editItem, setEditItem] = useState<MenuItem | null>(null)
   const [form, setForm] = useState({ name: '', category: '热菜' })
   const [loading, setLoading] = useState(false)
+
+  // 扫描导入状态
+  const [importStep, setImportStep] = useState<'idle' | 'uploading' | 'reviewing' | 'saving'>('idle')
+  const [importCandidates, setImportCandidates] = useState<ImportCandidate[]>([])
+  const importFileRef = useRef<HTMLInputElement>(null)
+
+  async function handleImportPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    setImportStep('uploading')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd })
+      const uploadData = await uploadRes.json()
+      if (!uploadRes.ok) throw new Error(uploadData.error || '上传失败')
+
+      const aiRes = await fetch('/api/menu-items/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: uploadData.url }),
+      })
+      const aiData = await aiRes.json()
+      if (!aiRes.ok) throw new Error(aiData.error || 'AI识别失败')
+
+      setImportCandidates(aiData.items.map((item: { name: string; category: string }) => ({ ...item, selected: true })))
+      setImportStep('reviewing')
+    } catch (err: any) {
+      showToast(err.message || '识别失败，请重试', 'error')
+      setImportStep('idle')
+    }
+  }
+
+  async function handleImportConfirm() {
+    const selected = importCandidates.filter((c) => c.selected)
+    if (selected.length === 0) { showToast('请至少选择一个菜品', 'error'); return }
+
+    setImportStep('saving')
+    try {
+      const res = await fetch('/api/menu-items/import', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: selected.map(({ name, category }) => ({ name, category })) }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '保存失败')
+
+      setItems((prev) => [...prev, ...data.items])
+      setImportCandidates([])
+      setImportStep('idle')
+      showToast(`成功导入 ${data.count} 个菜品`)
+    } catch (err: any) {
+      showToast(err.message || '保存失败', 'error')
+      setImportStep('reviewing')
+    }
+  }
+
+  function updateCandidate(idx: number, patch: Partial<ImportCandidate>) {
+    setImportCandidates((prev) => prev.map((c, i) => i === idx ? { ...c, ...patch } : c))
+  }
 
   const categories = [...new Set(items.map((m) => m.category))]
 
@@ -152,13 +220,88 @@ export default function MenuManager({ menuItems }: { menuItems: MenuItem[] }) {
 
   return (
     <div className="space-y-3">
-      <button
-        onClick={() => { setShowAdd(true); setEditItem(null); setForm({ name: '', category: '热菜' }) }}
-        className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 active:scale-95 transition-all"
-      >
-        <Plus size={16} />
-        添加菜品
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={() => { setShowAdd(true); setEditItem(null); setForm({ name: '', category: '热菜' }) }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 active:scale-95 transition-all"
+        >
+          <Plus size={16} />
+          添加菜品
+        </button>
+        <button
+          onClick={() => importFileRef.current?.click()}
+          disabled={importStep !== 'idle'}
+          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-orange-300 text-orange-500 text-sm font-medium rounded-xl hover:bg-orange-50 disabled:opacity-50 active:scale-95 transition-all"
+        >
+          <Camera size={16} />
+          扫描菜单导入
+        </button>
+        <input
+          ref={importFileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImportPhoto}
+        />
+      </div>
+
+      {/* 扫描导入面板 */}
+      {importStep === 'uploading' && (
+        <div className="bg-white rounded-xl border border-orange-200 p-6 text-center">
+          <div className="text-sm text-gray-500 animate-pulse">AI 正在识别菜单，请稍候...</div>
+        </div>
+      )}
+
+      {(importStep === 'reviewing' || importStep === 'saving') && (
+        <div className="bg-white rounded-xl border border-orange-200 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-800">
+              识别到 {importCandidates.length} 个菜品，确认后批量添加
+            </h3>
+            <button onClick={() => { setImportStep('idle'); setImportCandidates([]) }} className="text-gray-400 hover:text-gray-600 p-1">
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto space-y-1.5">
+            {importCandidates.map((c, idx) => (
+              <div key={idx} className={`flex items-center gap-2 p-2 rounded-lg border transition-colors ${c.selected ? 'border-orange-200 bg-orange-50/50' : 'border-gray-100 bg-gray-50 opacity-50'}`}>
+                <button onClick={() => updateCandidate(idx, { selected: !c.selected })} className="shrink-0">
+                  <div className={`w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${c.selected ? 'bg-orange-500 border-orange-500' : 'border-gray-300'}`}>
+                    {c.selected && <Check size={12} className="text-white" />}
+                  </div>
+                </button>
+                <input
+                  value={c.name}
+                  onChange={(e) => updateCandidate(idx, { name: e.target.value })}
+                  className="flex-1 text-sm bg-transparent border-none outline-none text-gray-800 min-w-0"
+                />
+                <select
+                  value={c.category}
+                  onChange={(e) => updateCandidate(idx, { category: e.target.value })}
+                  className="text-xs text-gray-500 bg-transparent border-none outline-none"
+                >
+                  {CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+                <button onClick={() => setImportCandidates((prev) => prev.filter((_, i) => i !== idx))} className="shrink-0 text-gray-300 hover:text-red-400 transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs text-gray-400">已选 {importCandidates.filter(c => c.selected).length} 个</span>
+            <button
+              onClick={handleImportConfirm}
+              disabled={importStep === 'saving' || importCandidates.filter(c => c.selected).length === 0}
+              className="px-5 py-2 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 disabled:bg-orange-300 active:scale-95 transition-all"
+            >
+              {importStep === 'saving' ? '保存中...' : `批量添加 ${importCandidates.filter(c => c.selected).length} 个菜品`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 添加/编辑表单 */}
       {(showAdd || editItem) && (
