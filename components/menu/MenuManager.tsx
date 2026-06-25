@@ -7,24 +7,34 @@ import { useToast } from '@/components/ui/Toast'
 
 const CATEGORIES = ['凉菜', '热菜', '汤类', '主食', '海鲜', '烧烤', '饮品', '甜品', '其他']
 
-function compressImage(file: File, maxPx = 1600, quality = 0.82): Promise<Blob> {
+function compressOnce(img: HTMLImageElement, maxPx: number, quality: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
-      const w = Math.round(img.width * scale)
-      const h = Math.round(img.height * scale)
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('压缩失败')), 'image/jpeg', quality)
-    }
-    img.onerror = reject
-    img.src = url
+    const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
+    const w = Math.round(img.width * scale)
+    const h = Math.round(img.height * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('压缩失败')), 'image/jpeg', quality)
   })
+}
+
+async function compressImage(file: File): Promise<Blob> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image()
+    const url = URL.createObjectURL(file)
+    el.onload = () => { URL.revokeObjectURL(url); resolve(el) }
+    el.onerror = () => { URL.revokeObjectURL(url); reject(new Error('图片读取失败')) }
+    el.src = url
+  })
+  const LIMIT = 3.5 * 1024 * 1024
+  const steps: [number, number][] = [[1600, 0.82], [1200, 0.75], [900, 0.65], [700, 0.55]]
+  for (const [maxPx, quality] of steps) {
+    const blob = await compressOnce(img, maxPx, quality)
+    if (blob.size < LIMIT) return blob
+  }
+  return compressOnce(img, 700, 0.55)
 }
 const SWIPE_THRESHOLD = 64
 
@@ -132,7 +142,9 @@ export default function MenuManager({ menuItems }: { menuItems: MenuItem[] }) {
       const fd = new FormData()
       fd.append('file', new File([compressed], 'menu.jpg', { type: 'image/jpeg' }))
       const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd })
-      const uploadData = await uploadRes.json()
+      const uploadText = await uploadRes.text()
+      let uploadData: Record<string, string>
+      try { uploadData = JSON.parse(uploadText) } catch { throw new Error(uploadText || '上传失败') }
       if (!uploadRes.ok) throw new Error(uploadData.error || '上传失败')
 
       const aiRes = await fetch('/api/menu-items/import', {
@@ -140,7 +152,7 @@ export default function MenuManager({ menuItems }: { menuItems: MenuItem[] }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_url: uploadData.url }),
       })
-      const aiData = await aiRes.json()
+      const aiData = await aiRes.json().catch(() => ({ error: 'AI识别失败' }))
       if (!aiRes.ok) throw new Error(aiData.error || 'AI识别失败')
 
       setImportCandidates(aiData.items.map((item: { name: string; category: string }) => ({ ...item, selected: true })))
