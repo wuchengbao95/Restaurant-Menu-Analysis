@@ -1,3 +1,5 @@
+export const runtime = 'edge'
+
 import { createClient } from '@/lib/supabase/server'
 import { identifyLeftover } from '@/lib/deepseek-vision'
 import { NextResponse } from 'next/server'
