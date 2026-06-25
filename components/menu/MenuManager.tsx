@@ -6,6 +6,26 @@ import { Plus, Pencil, X, EyeOff, Eye, Camera, Check, Trash2 } from 'lucide-reac
 import { useToast } from '@/components/ui/Toast'
 
 const CATEGORIES = ['凉菜', '热菜', '汤类', '主食', '海鲜', '烧烤', '饮品', '甜品', '其他']
+
+function compressImage(file: File, maxPx = 1600, quality = 0.82): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height))
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('压缩失败')), 'image/jpeg', quality)
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
 const SWIPE_THRESHOLD = 64
 
 function MenuItemRow({
@@ -108,8 +128,9 @@ export default function MenuManager({ menuItems }: { menuItems: MenuItem[] }) {
 
     setImportStep('uploading')
     try {
+      const compressed = await compressImage(file)
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', new File([compressed], 'menu.jpg', { type: 'image/jpeg' }))
       const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd })
       const uploadData = await uploadRes.json()
       if (!uploadRes.ok) throw new Error(uploadData.error || '上传失败')
