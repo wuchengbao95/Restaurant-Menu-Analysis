@@ -2,8 +2,7 @@ import OpenAI from 'openai'
 
 function getClient() {
   return new OpenAI({
-    apiKey: process.env.DEEPSEEK_API_KEY,
-    baseURL: 'https://api.deepseek.com',
+    apiKey: process.env.OPENAI_API_KEY,
   })
 }
 
@@ -16,7 +15,7 @@ export async function extractMenuItems(imageUrl: string): Promise<MenuItemExtrac
   const client = getClient()
 
   const response = await client.chat.completions.create({
-    model: 'deepseek-vl2',
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'user',
@@ -68,7 +67,7 @@ export async function identifyLeftover(
   const menuList = menuItems.map((m) => `${m.name}（${m.category}）`).join('、')
 
   const response = await client.chat.completions.create({
-    model: 'deepseek-vl2',
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'user',
