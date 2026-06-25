@@ -152,7 +152,7 @@ export default function MenuManager({ menuItems }: { menuItems: MenuItem[] }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_url: uploadData.url }),
       })
-      const aiData = await aiRes.json().catch(() => ({ error: 'AI识别失败' }))
+      const aiData = await aiRes.json()
       if (!aiRes.ok) throw new Error(aiData.error || 'AI识别失败')
 
       setImportCandidates(aiData.items.map((item: { name: string; category: string }) => ({ ...item, selected: true })))

@@ -20,8 +20,13 @@ export async function POST(request: Request) {
   const { image_url } = await request.json()
   if (!image_url) return NextResponse.json({ error: '缺少图片URL' }, { status: 400 })
 
-  const items = await extractMenuItems(image_url)
-  return NextResponse.json({ items })
+  try {
+    const items = await extractMenuItems(image_url)
+    return NextResponse.json({ items })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'AI识别异常'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }
 
 export async function PUT(request: Request) {

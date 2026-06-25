@@ -32,15 +32,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '请先在菜单管理中添加菜品' }, { status: 400 })
   }
 
-  const result = await identifyLeftover(image_url, menuItems)
-
-  const matched = menuItems.find((m) => m.name === result.dish_name)
-
-  return NextResponse.json({
-    menu_item_id: matched?.id ?? null,
-    menu_item_name: result.dish_name,
-    leftover_ratio: result.leftover_ratio,
-    confidence: result.confidence,
-    matched: !!matched,
-  })
+  try {
+    const result = await identifyLeftover(image_url, menuItems)
+    const matched = menuItems.find((m) => m.name === result.dish_name)
+    return NextResponse.json({
+      menu_item_id: matched?.id ?? null,
+      menu_item_name: result.dish_name,
+      leftover_ratio: result.leftover_ratio,
+      confidence: result.confidence,
+      matched: !!matched,
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'AI识别异常'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }
